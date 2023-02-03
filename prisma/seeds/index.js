@@ -1,2 +1,2 @@
-export * from './CategorySeeder.js';
+export * from './RoleSeeder.js';
 export * from './UserSeeder.js';
