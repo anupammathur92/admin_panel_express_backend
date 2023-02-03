@@ -3,6 +3,7 @@ import express from 'express';
 import { PrismaClient } from "@prisma/client";
 import pkg from 'nexus';
 import path from 'path';
+import md5 from 'md5';
 const { objectType, queryType, extendType, inputObjectType, nullable, nonNull, makeSchema, declarativeWrappingPlugin } = pkg;
 import { ApolloServer } from 'apollo-server-express';
 import passport from 'passport';
@@ -28,20 +29,6 @@ const User = objectType({
     table.nonNull.int('id');
     table.nonNull.string('name');
     table.nonNull.string('email');
-    table.nonNull.string('age');
-    table.nonNull.string('password');
-    table.nonNull.string('bankName');
-    table.nonNull.string('bankAccNo');
-    table.nonNull.string('bankIfsc');
-    table.nonNull.string('bankBal');
-  },
-});
-
-const Category = objectType({
-  name: 'Category',
-  definition(table) {
-    table.nonNull.int('id');
-    table.nonNull.string('catName');
   },
 });
 
@@ -72,24 +59,11 @@ const checkLoginInput = inputObjectType({
 
 const Query = queryType({
   definition(t) {
-    t.list.field('cats', {
-      type: 'Category',
-      nullable: true,
-      resolve: async (parent, args, ctx) => {
-        return await ctx.prisma.category.findMany({
-          orderBy: [
-            {
-              id: 'desc',
-            },
-          ]
-        });
-      },
-    })
     t.list.field('users', {
       type: 'User',
       nullable: true,
       resolve: async (parent, args, ctx) => {
-        return await ctx.prisma.user.findMany({
+        return await ctx.prisma.users.findMany({
           orderBy: [
             {
               id: 'desc',
@@ -104,7 +78,7 @@ const Query = queryType({
         input: nullable(checkLoginInput),
       },
       resolve: async (parent, args, ctx) => {
-        const userDetails = await ctx.prisma.user.findFirst({
+        const userDetails = await ctx.prisma.users.findFirst({
           where:{
             email: args.input.email,
             password:args.input.password
@@ -118,7 +92,7 @@ const Query = queryType({
             msg : 'fail',
             status: 'false',
             name : ''
-          }          
+          }
         }
 
         return{
@@ -128,13 +102,6 @@ const Query = queryType({
         }
       },
     })
-  }
-});
-
-const createCategoryInput = inputObjectType({
-  name: 'CreateCategoryInput',
-  definition(t) {
-    t.nonNull.string('catName');
   }
 });
 
@@ -150,38 +117,8 @@ const createUserInput = inputObjectType({
   definition(t) {
     t.nonNull.string('name');
     t.nonNull.string('email');
-    t.nonNull.string('age');
     t.nonNull.string('password');
-    t.nonNull.string('bankName');
-    t.nonNull.string('bankAccNo');
-    t.nonNull.string('bankIfsc');
-    t.nonNull.string('bankBal');
   }
-});
-
-const CreateCategoryMutation = extendType({
-  type: 'Mutation',
-  definition(t) {
-    t.nonNull.field('createCategory', {
-      type: 'OutputResponse',
-      args: {
-        input: nullable(createCategoryInput),
-      },
-      resolve: async(parent, args, ctx) => {
-          console.log("ARGS: ",JSON.stringify(args));
-          const categoryDetails = await ctx.prisma.category.create({
-            data : {
-              catName : args.input.catName
-            }
-          });
-          
-          return {
-            msg : 'Category successfully created',
-            status : '200'
-          }
-      },
-    })
-  },
 });
 
 const CreateUserMutation = extendType({
@@ -194,16 +131,12 @@ const CreateUserMutation = extendType({
       },
       resolve: async(parent, args, ctx) => {
           console.log("USER_ARGS: ",JSON.stringify(args));
-          const userDetails = await ctx.prisma.user.create({
+          const userDetails = await ctx.prisma.users.create({
             data : {
               name : args.input.name,
               email : args.input.email,
-              age : args.input.age,
-              password : args.input.password,
-              bankName : args.input.bankName,
-              bankAccNo: args.input.bankAccNo,
-              bankIfsc : args.input.bankIfsc,
-              bankBal  : args.input.bankBal
+              role_id : 1,
+              password : md5(args.input.password)
             }
           });
           return {
@@ -212,30 +145,6 @@ const CreateUserMutation = extendType({
           }
       },
     })
-  },
-});
-
-const DeleteCategoryMutation = extendType({
-  type: "Mutation",
-  definition(t) {
-    t.nonNull.field("deleteCategory", {
-      type: "OutputResponse",
-      args: {
-        input: nullable(deleteInput),
-      },
-      resolve: async(parent, args, ctx) =>{
-        console.log("USER_ARGS: ",JSON.stringify(args));
-        await ctx.prisma.category.delete({
-          where: {
-            id: args.input.id,
-          },
-        });
-        return {
-          msg : 'Category successfully deleted',
-          status : '200'
-        }
-      },
-    });
   },
 });
 
@@ -249,7 +158,7 @@ const DeleteUserMutation = extendType({
       },
       resolve: async(parent, args, ctx) =>{
         console.log("USER_ARGS: ",JSON.stringify(args));
-        await ctx.prisma.user.delete({
+        await ctx.prisma.users.delete({
           where: {
             id: args.input.id,
           },
@@ -264,7 +173,7 @@ const DeleteUserMutation = extendType({
 });
 
 const schema = makeSchema({
-  types: [Category,User,OutputResponse,CheckLoginResponse,Query,CreateCategoryMutation,CreateUserMutation,DeleteCategoryMutation,DeleteUserMutation],
+  types: [User,OutputResponse,CheckLoginResponse,Query,CreateUserMutation,DeleteUserMutation],
   plugins: [declarativeWrappingPlugin()],
   shouldGenerateArtifacts: true,
   outputs: {
@@ -289,9 +198,9 @@ const server = new ApolloServer({
 const apolloPath = '/graphql';
 passport.use(new LocalStrategy(
   function(username, password, done) {
-    const userDetails = prisma.user.findFirst({
+    const userDetails = prisma.users.findFirst({
       where:{
-        email : 'a@gmail.com'
+        email : 'a@yopmail.com'
       }
     });
 
@@ -300,11 +209,11 @@ passport.use(new LocalStrategy(
   }
 ));
 
-app.get("/failureUrl",function(req,res){
+/*app.get("/failureUrl",function(req,res){
   res.send("Un-authorized access");
-});
+});*/
 
-app.use(apolloPath, passport.authenticate('local',{ failureRedirect: '/failureUrl' }));
+//app.use(apolloPath, passport.authenticate('local',{ failureRedirect: '/failureUrl' }));
 
 await server.start();
 server.applyMiddleware({ app, apolloPath });

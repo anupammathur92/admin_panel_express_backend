@@ -8,11 +8,11 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-model Role {
+model roles {
   id      Int      @id @default(autoincrement())
   role_name    String
 }
-model User {
+model users {
   id      Int      @id @default(autoincrement())
   role_id    Int
   name    String?

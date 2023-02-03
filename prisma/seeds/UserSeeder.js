@@ -1,16 +1,17 @@
+import md5 from 'md5';
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const USERS = [{
     name : 'test project',
     email : 'a@yopmail.com',
-    password : '1234',
+    password : md5('1234'),
     role_id : 1
   }]
 
 export async function seedUser() {
   for(let i=0;i<USERS.length;i++){
-    const user = await prisma.user.create({
+    const user = await prisma.users.create({
       data: {
         name: USERS[i].name,
         email: USERS[i].email,
