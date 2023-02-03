@@ -44,8 +44,7 @@ const CheckLoginResponse = objectType({
   name: 'CheckLoginResponse',
   definition(t) {
     t.nonNull.string('msg');
-    t.nonNull.string('status');
-    t.nonNull.string('name');
+    t.nonNull.boolean('status');
   },
 });
 
@@ -57,13 +56,37 @@ const checkLoginInput = inputObjectType({
   }
 });
 
+const checkUserDetailInput = inputObjectType({
+  name: 'checkUserDetailInput',
+  definition(t) {
+    t.nonNull.int('id');
+  }
+});
+
 const Query = queryType({
   definition(t) {
+    t.field('getUserById', {
+      type: 'User',
+      args: {
+        input: nullable(checkUserDetailInput),
+      },
+      resolve: async (parent, args, ctx) => {
+        return await ctx.prisma.users.findFirst({
+          where : {
+            role_id : 2,
+            id : args.input.id
+          }
+        });
+      },
+    })
     t.list.field('users', {
       type: 'User',
       nullable: true,
       resolve: async (parent, args, ctx) => {
         return await ctx.prisma.users.findMany({
+          where : {
+            role_id : 2
+          },
           orderBy: [
             {
               id: 'desc',
@@ -81,7 +104,7 @@ const Query = queryType({
         const userDetails = await ctx.prisma.users.findFirst({
           where:{
             email: args.input.email,
-            password:args.input.password
+            password:md5(args.input.password)
           }
         });
 
@@ -89,16 +112,14 @@ const Query = queryType({
 
         if(userDetails===null){
           return{
-            msg : 'fail',
-            status: 'false',
-            name : ''
+            msg : 'Login Failed',
+            status: false,
           }
         }
 
-        return{
-          msg : 'success',
-          status: 'true',
-          name : userDetails.name
+        return {
+          msg : 'Login Successful',
+          status: true
         }
       },
     })
@@ -121,6 +142,41 @@ const createUserInput = inputObjectType({
   }
 });
 
+const updateUserInput = inputObjectType({
+  name: 'UpdateUserInput',
+  definition(t) {
+    t.nonNull.string('name');
+    t.nonNull.int('id');
+  }
+});
+
+const UpdateUserMutation = extendType({
+  type: 'Mutation',
+  definition(t) {
+    t.nonNull.field('updateUser', {
+      type: 'OutputResponse',
+      args: {
+        input: nullable(updateUserInput),
+      },
+      resolve: async(parent, args, ctx) => {
+          console.log("USER_ARGS: ",JSON.stringify(args));
+          const userDetails = await ctx.prisma.users.update({
+            where: {
+              id: args.input.id
+            },
+            data : {
+              name : args.input.name
+            }
+          });
+          return {
+            msg : 'User successfully updated',
+            status : '200'
+          }
+      },
+    })
+  },
+});
+
 const CreateUserMutation = extendType({
   type: 'Mutation',
   definition(t) {
@@ -135,7 +191,7 @@ const CreateUserMutation = extendType({
             data : {
               name : args.input.name,
               email : args.input.email,
-              role_id : 1,
+              role_id : 2,
               password : md5(args.input.password)
             }
           });
@@ -173,7 +229,7 @@ const DeleteUserMutation = extendType({
 });
 
 const schema = makeSchema({
-  types: [User,OutputResponse,CheckLoginResponse,Query,CreateUserMutation,DeleteUserMutation],
+  types: [User,OutputResponse,CheckLoginResponse,Query,CreateUserMutation,UpdateUserMutation,DeleteUserMutation],
   plugins: [declarativeWrappingPlugin()],
   shouldGenerateArtifacts: true,
   outputs: {
